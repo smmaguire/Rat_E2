@@ -122,7 +122,7 @@ text(sft$fitIndices[,1],sft$fitIndices[,5],labels=powers,cex=cex1,col="red")
 
 #I'll go with 4 for now but may test from 4-8
 
-softPower<-4
+softPower<-5
 adjacency=adjacency(arc.mat.gsg,power=softPower)
 TOM=TOMsimilarity(adjacency)
 dissTOM<- 1-TOM
@@ -131,7 +131,7 @@ geneTree=flashClust(as.dist(dissTOM),method="average")
 sizeGrWindow(12,9)
 plot(geneTree,xlab="",sub="",main="Gene clustering on TOM-based dissimilarity",labels=FALSE,hang=.04)
 
-minModuleSize=4
+minModuleSize=0
 dynamicMods<- cutreeDynamic(dendro=geneTree,distM=dissTOM,deepSplit=2,pamRespectsDendro=FALSE,minClusterSize=minModuleSize)
 table(dynamicMods)
 
@@ -152,9 +152,17 @@ brown<-aov(MEbrown~treatment,data=MEs)
 summary(brown)
 plot(MEbrown~treatment,data=MEs)
 
+green<-aov(MEgreen~treatment,data=MEs)
+summary(green)
+plot(MEgreen~treatment,data=MEs)
+
 names(MEs)
 grey<-aov(MEgrey~treatment,data=MEs)
 summary(grey)
+
+red<-aov(MEred~treatment,data=MEs)
+summary(red)
+plot(MEred~treatment,data=MEs)
 
 turquoise<-aov(MEturquoise~treatment,data=MEs)
 summary(turquoise)

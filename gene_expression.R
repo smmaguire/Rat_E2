@@ -57,8 +57,9 @@ arc.across_treatment<-cor(as.numeric(diag.remove(arc.mat.e2.1.cov)),as.numeric(d
 poa.across_treatment<-cor(as.numeric(diag.remove(poa.mat.e2.1.cov)),as.numeric(diag.remove(poa.mat.e2.2.cov)),use="pairwise.complete.obs")
 
 ###################################################WGCNA##################################################################
-
-install.packages('WGCNA')
+source("http://bioconductor.org/biocLite.R")
+biocLite("impute")
+install.packages("WGCNA") 
 library(WGCNA)
 allowWGCNAThreads() # faster w/ multiple threads
 
@@ -105,3 +106,60 @@ traitColors = numbers2colors(datTraits, signed = FALSE);
 plotDendroAndColors(sampleTree2, traitColors,
                     groupLabels = names(datTraits),
                     main = "Sample dendrogram and trait heatmap")
+
+powers<- c(1:10, seq(from=12,to=20,by=2))
+sft<-pickSoftThreshold(arc.mat.gsg,powerVector=powers,verbose=5)
+sizeGrWindow(9,5)
+par(mfrow=c(1,2))
+cex1=.9
+
+plot(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],xlab="soft threshold (power)",ylab="scale free R2",type="n",main="scale independence")
+text(sft$fitIndices[,1],-sign(sft$fitIndices[,3])*sft$fitIndices[,2],labels=powers,cex=cex1,col="red")
+abline(h=.9,col="red")
+
+plot(sft$fitIndices[,1],sft$fitIndices[,5],type="n",xlab="power",ylab="mean connectivity")
+text(sft$fitIndices[,1],sft$fitIndices[,5],labels=powers,cex=cex1,col="red")
+
+#I'll go with 4 for now but may test from 4-8
+
+softPower<-4
+adjacency=adjacency(arc.mat.gsg,power=softPower)
+TOM=TOMsimilarity(adjacency)
+dissTOM<- 1-TOM
+
+geneTree=flashClust(as.dist(dissTOM),method="average")
+sizeGrWindow(12,9)
+plot(geneTree,xlab="",sub="",main="Gene clustering on TOM-based dissimilarity",labels=FALSE,hang=.04)
+
+minModuleSize=4
+dynamicMods<- cutreeDynamic(dendro=geneTree,distM=dissTOM,deepSplit=2,pamRespectsDendro=FALSE,minClusterSize=minModuleSize)
+table(dynamicMods)
+
+dynamicColors=labels2colors(dynamicMods)
+table(dynamicColors)
+plotDendroAndColors(geneTree,dynamicColors,"Dynamic Tree Cut",dendroLabels=FALSE,hang=.03,addGuide=TRUE,guideHang=.05,main="Gene dendrogram and module colors")
+
+MEList<-moduleEigengenes(arc.mat.gsg,colors=dynamicColors)
+Modules<-data.frame(gene=colnames(arc.mat.gsg),color=MEList$validColors)
+MEs<-MEList$eigengenes
+
+MEs$treatment<-arc$Group[match(rownames(arc.mat.gsg),arc$Sample.Name)]
+blue<-aov(MEblue~treatment,data=MEs)
+summary(blue)
+plot(MEblue~treatment,data=MEs)
+
+brown<-aov(MEbrown~treatment,data=MEs)
+summary(brown)
+plot(MEbrown~treatment,data=MEs)
+
+names(MEs)
+grey<-aov(MEgrey~treatment,data=MEs)
+summary(grey)
+
+turquoise<-aov(MEturquoise~treatment,data=MEs)
+summary(turquoise)
+plot(MEturquoise~treatment,data=MEs)
+
+yellow<-aov(MEyellow~treatment,data=MEs)
+summary(yellow)
+plot(MEyellow~treatment,data=MEs)

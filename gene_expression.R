@@ -1,6 +1,7 @@
 #GeneExpression
 
 #Covariance networks between the two brain areas
+library(sna)
 arc<-read.csv("ARC TLDA for stats 7-20-13.csv") # load the data
 poa<-read.csv("mPOA TLDA for stats 7-20-13.csv")
 

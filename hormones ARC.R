@@ -38,7 +38,10 @@ imputed$Group<-hormone$Group
 
 #nonparametric anova
 nonpartest(E2.RIA|LH|FSH|GH|TSH|PRL|BDNF|ACTH~Group,data=imputed)
-hackNonParTest(E2.RIA|LH|FSH|GH|TSH|PRL|BDNF|ACTH~Group,data=imputed)
+hack1<-hackNonParTest(E2.RIA|LH|FSH|GH|TSH|PRL|BDNF|ACTH~Group,data=imputed,permreps
+                      =50000)
+wtf<-ssnonpartest(E2.RIA|LH|FSH|GH|TSH|PRL|BDNF|ACTH~Group,data=imputed)
+
 
 man1<-manova(cbind(E2.RIA,LH,FSH,GH,TSH,PRL,BDNF,ACTH)~Group)#not normal
 summary(man1,test="Pi")

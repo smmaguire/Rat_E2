@@ -68,14 +68,3 @@ fitNo<-lda(Group~E2.RIA+LH+FSH+GH+TSH+PRL+BDNF+ACTH,na.action="na.omit",data=(no
 
 fit<-lda(Group~E2.RIA+LH+FSH+GH+TSH+PRL+BDNF+ACTH,na.action="na.omit",data=data.frame(scale(cbind(E2.RIA+LH+FSH+GH+TSH+PRL+BDNF+ACTH))))
 plot(fit,dimen=2)
-
-anvM1<-aov(E2.RIA~Group)
-Pairs <- glht(anvM1, linfct = mcp(Group = "Tukey"))
-cld(Pairs)
-
-shapiro.test(sqrt(TSH))
-anTSH<-aov(sqrt(TSH)~Group)
-summary(anTSH)
-
-library(MASS)
-TukeyHSD(anTSH)

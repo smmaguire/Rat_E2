@@ -104,7 +104,7 @@ poa<-read.csv("mPOA TLDA for stats 7-20-13.csv")
 names(arc)[18]
 names(arc)[64] #bounds are 18 to 64
 
-arc.mat<-arc[-83:-93,18:64] # column 11 is missing data.
+arc.mat<-arc[,18:64] # column 11 is missing data.
 which(grepl("Mtnr1a",names(arc.mat)))
 arc.mat[,30]
 which(arc.mat=="#VALUE!",arr.ind=TRUE)
@@ -150,20 +150,16 @@ fullMat<-fullMat[-badRows,]
 #imputing missing data
 library(imputation)
 fullMat<-kNNImpute(fullMat,3)$x
-
-#heatmap1 using pca
-#is.matrix(fullMat)
-#pdf("heatmap.pdf",height=20,width=20)
 ```
 
 ```{r fig.height=20, fig.width=20}
 library(NeatMap)
-make.heatmap1(as.matrix(scale(fullMat)),row.method="nMDS",column.method="nMDS",column.metric = "pearson",row.labels=rownames(fullMat),column.labels=colnames(fullMat))
+make.heatmap1(as.matrix(scale(fullMat)),row.method="nMDS",column.method="nMDS",row.labels=rownames(fullMat),column.labels=colnames(fullMat))
 ```
 
 ```{r fig.height=20, fig.width=20}
 rownames(fullMat)<-c(arc$Group.code[1:82][-badRows],poa$Group.code[-badRows])
-make.heatmap1(as.matrix(scale(fullMat)),row.method="nMDS",column.method="nMDS",column.metric = "pearson",row.labels=rownames(fullMat),column.labels=colnames(fullMat))
+make.heatmap1(as.matrix(scale(fullMat)),row.method="nMDS",column.method="nMDS",row.labels=rownames(fullMat),column.labels=colnames(fullMat))
 ```
 
 ## POA and Arcuate cluster together much more than treatment cluster together
@@ -178,22 +174,32 @@ graphCorrelation<-cor(as.numeric(diag.remove(poa.cov)),as.numeric(diag.remove(ar
 paste("Overall corrleation of the covariance networks between the brain regions is",graphCorrelation,sep=" ")
 ```
 
+Groups are as follows:
+1. YV3
+2. YE3
+3. MV3
+4. ME3
+5. MV6
+6. ME6
+7. MV3E3
+8. ME3V3
+
 ## Similarity of covariance networks within POA, across treatment groups
 ```{r fig.height=6, fig.width=6}
 poa.fix.corgram<-makeCorGram_withinGroup(poa,poa.mat)
-print(levelplot(as.matrix(poa.fix.corgram),xlab=NULL,ylab=NULL,at=do.breaks(c(-1.01,1.01),101),scales=list(x=list(rot=90)),colorkey=list(space="top"),col.regions=colorRampPalette(c("gold","gray85","purple2"))))
+print(levelplot(as.matrix(poa.fix.corgram),xlab="poa.treatment.group",ylab="poa.treatment.group",at=do.breaks(c(-1.01,1.01),101),scales=list(x=list(rot=90)),colorkey=list(space="top"),col.regions=colorRampPalette(c("gold","gray85","purple2"))))
 ```
 
 ## Similarity of covariance networks within ARC, across treatment groups
 ```{r fig.height=6, fig.width=6}
 arc.fix.corgram<-makeCorGram_withinGroup(arc,arc.mat.small)
-print(levelplot(as.matrix(arc.fix.corgram),xlab=NULL,ylab=NULL,at=do.breaks(c(-1.01,1.01),101),scales=list(x=list(rot=90)),colorkey=list(space="top"),col.regions=colorRampPalette(c("gold","gray85","purple2"))))
+print(levelplot(as.matrix(arc.fix.corgram),xlab="arc.treatment.groups",ylab="arc.treatment.groups",at=do.breaks(c(-1.01,1.01),101),scales=list(x=list(rot=90)),colorkey=list(space="top"),col.regions=colorRampPalette(c("gold","gray85","purple2"))))
 ```
 
 ## Similarity of covariance networks across Brain areas and treatment groups
 ```{r fig.height=6, fig.width=6}
 across.brain<-makeCorGram_AcrossBrain(poa,poa.mat,arc,arc.mat.small)
-print(levelplot(as.matrix(across.brain),xlab=NULL,ylab=NULL,at=do.breaks(c(-1.01,1.01),101),scales=list(x=list(rot=90)),colorkey=list(space="top"),col.regions=colorRampPalette(c("gold","gray85","purple2"))))
+print(levelplot(as.matrix(across.brain),xlab="arc.treatment.groups",ylab="poa.treatment.groups",at=do.breaks(c(-1.01,1.01),101),scales=list(x=list(rot=90)),colorkey=list(space="top"),col.regions=colorRampPalette(c("gold","gray85","purple2"))))
 ```
 
 ## Visualizing Covariance networks
@@ -257,4 +263,298 @@ plot(arc.network,layout=co,edge.width=5*get.edge.attribute(arc.network,"weight")
 ```{r}
 hist(degree(poa.network))
 hist(degree(arc.network))
+```
+
+
+WGCNA
+===================================================================
+
+Install first time only:
+source("http://bioconductor.org/biocLite.R")
+biocLite("impute")
+install.packages("WGCNA") 
+```{r}
+library(WGCNA)
+allowWGCNAThreads() # faster w/ multiple threads
+
+#1 fix names.
+gene<-vector()
+for(probe in colnames(arc.mat)){
+  gsplt<-unlist(strsplit(probe,split=".",fixed=TRUE))
+  gene<-c(gene,gsplt[1])
+}
+
+colnames(arc.mat)<-gene
+rownames(arc.mat)<-as.character(arc$Sample.Name)
+gsg <- goodSamplesGenes(arc.mat, verbose = 3);
+
+if (!gsg$allOK)
+{
+  # Optionally, print the gene and sample names that were removed:
+  if (sum(!gsg$goodGenes)>0)
+    printFlush(paste("Removing genes:", paste(names(arc.mat)[!gsg$goodGenes], collapse = ", ")));
+  if (sum(!gsg$goodSamples)>0)
+    printFlush(paste("Removing samples:", paste(rownames(arc.mat)[!gsg$goodSamples], collapse = ", ")));
+  # Remove the offending genes and samples from the data:
+  arc.mat.gsg <- arc.mat[gsg$goodSamples, gsg$goodGenes]
+}
+#Removing samples: ABV26, ABV75, ABV49, ABV44, ABV45, ABV46, ABV55
+
+sampleTree = flashClust(dist(arc.mat.gsg), method = "average") #Removing ABV86
+arc.mat.gsg<-arc.mat.gsg[rownames(arc.mat.gsg)!="ABV86",]
+nGenes<-ncol(arc.mat.gsg)
+nSamples<-nrow(arc.mat.gsg)
+
+sampNames<-rownames(arc.mat.gsg)
+traitRows<- match(sampNames,as.character(arc$Sample.Name))
+
+names(arc)[6:8] <- c("e2", "age", "duration")
+arc$e2[61:82] <- as.factor(ifelse(arc$Group.ID[61:82] == 7, yes = "e", 
+    no = "v"))
+arc$age[which(arc$age == "o")] <- factor("m")
+arc$duration <- factor(c(rep(3, length(1:40)), rep(6, length(41:60)), rep(NA,length(61:82))))
+
+arc$duration<-as.factor((as.character(arc$duration)))
+
+datTraits<- data.frame(Treatment=as.numeric(arc$Group.ID[traitRows]),E2=as.numeric(arc$e2[traitRows]),age=as.numeric(arc$age[traitRows]),duration=as.numeric(arc$duration[traitRows]))
+
+sampleTree2 = flashClust(dist(arc.mat.gsg), method = "average")
+traitColors = numbers2colors((datTraits), signed = FALSE);
+
+```
+```{r fig.height=9,fig.width=12}
+plotDendroAndColors(sampleTree2, traitColors,
+                    groupLabels = names(datTraits),
+                    main = "Sample dendrogram and trait heatmap")
+```
+```{r}
+#powers<- c(1:10, seq(from=12,to=20,by=2))
+#sft<-pickSoftThreshold(arc.mat.gsg,powerVector=powers,verbose=5)
+#sizeGrWindow(9,5)
+#par(mfrow=c(1,2))
+#cex1=.9
+
+#plot(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],xlab="soft threshold (power)",ylab="scale free R2",type="n",main="scale independence")
+#text(sft$fitIndices[,1],-sign(sft$fitIndices[,3])*sft$fitIndices[,2],labels=powers,cex=cex1,col="red")
+#abline(h=.9,col="red")
+
+#plot(sft$fitIndices[,1],sft$fitIndices[,5],type="n",xlab="power",ylab="mean connectivity")
+#text(sft$fitIndices[,1],sft$fitIndices[,5],labels=powers,cex=cex1,col="red")
+
+#I'll go with 4 for now but may test from 4-8
+
+softPower<-5
+adjacency=adjacency(arc.mat.gsg,power=softPower)
+TOM=TOMsimilarity(adjacency)
+dissTOM<- 1-TOM
+
+geneTree=flashClust(as.dist(dissTOM),method="average")
+#sizeGrWindow(12,9)
+```
+```{r fig.height=9,fig.width=12}
+plot(geneTree,xlab="",sub="",main="Gene clustering on TOM-based dissimilarity",labels=FALSE,hang=.04)
+```
+```{r}
+minModuleSize=0
+dynamicMods<- cutreeDynamic(dendro=geneTree,distM=dissTOM,deepSplit=2,pamRespectsDendro=FALSE,minClusterSize=minModuleSize)
+#table(dynamicMods)
+
+dynamicColors=labels2colors(dynamicMods)
+table(dynamicColors)
+```
+```{r fig.height=9, fig.width=12}
+plotDendroAndColors(geneTree,dynamicColors,"Dynamic Tree Cut",dendroLabels=FALSE,hang=.03,addGuide=TRUE,guideHang=.05,main="Gene dendrogram and module colors")
+```
+```{r}
+MEList<-moduleEigengenes(arc.mat.gsg,colors=dynamicColors)
+Modules<-data.frame(gene=colnames(arc.mat.gsg),color=MEList$validColors)
+MEs<-MEList$eigengenes
+
+MEs$treatment<-arc$Group.code[match(rownames(arc.mat.gsg),arc$Sample.Name)]
+blue<-aov(MEblue~treatment,data=MEs)
+summary(blue)
+```
+```{r fig.height=3.5,fig.width=5}
+plot(MEblue~treatment,data=MEs)
+```
+```{r fig.height=3.5,fig.width=5}
+brown<-aov(MEbrown~treatment,data=MEs)
+summary(brown)
+plot(MEbrown~treatment,data=MEs)
+```
+```{r fig.height=3.5,fig.width=5}
+green<-aov(MEgreen~treatment,data=MEs)
+summary(green)
+plot(MEgreen~treatment,data=MEs)
+```
+```{r fig.height=3.5,fig.width=5}
+names(MEs)
+grey<-aov(MEgrey~treatment,data=MEs)
+summary(grey)
+```
+```{r fig.height=3.5,fig.width=5}
+red<-aov(MEred~treatment,data=MEs)
+summary(red)
+plot(MEred~treatment,data=MEs)
+```
+```{r fig.height=3.5,fig.width=5}
+turquoise<-aov(MEturquoise~treatment,data=MEs)
+summary(turquoise)
+plot(MEturquoise~treatment,data=MEs)
+```
+```{r fig.height=3.5,fig.width=5}
+yellow<-aov(MEyellow~treatment,data=MEs)
+summary(yellow)
+plot(MEyellow~treatment,data=MEs)
+```
+
+```{r}
+##################################POA###############################
+#1 fix names.
+#rm(list=ls())
+gene<-vector()
+for(probe in colnames(poa.mat)){
+  gsplt<-unlist(strsplit(probe,split=".",fixed=TRUE))
+  gene<-c(gene,gsplt[1])
+}
+
+colnames(poa.mat)<-gene
+rownames(poa.mat)<-as.character(poa$Sample.Name)
+gsg <- goodSamplesGenes(poa.mat, verbose = 3);
+
+if (!gsg$allOK)
+{
+  # Optionally, print the gene and sample names that were removed:
+  if (sum(!gsg$goodGenes)>0)
+    printFlush(paste("Removing genes:", paste(names(poa.mat)[!gsg$goodGenes], collapse = ", ")));
+  if (sum(!gsg$goodSamples)>0)
+    printFlush(paste("Removing samples:", paste(rownames(poa.mat)[!gsg$goodSamples], collapse = ", ")));
+  # Remove the offending genes and samples from the data:
+  poa.mat.gsg <- poa.mat[gsg$goodSamples, gsg$goodGenes]
+}
+#Removing samples: ABV26, ABV85, ABV18, ABV49, ABV43, ABV56
+
+sampleTree = flashClust(dist(poa.mat.gsg), method = "average");
+#sizeGrWindow(12,9)
+```
+```{r fig.height=9,fig.width=12}
+plot(sampleTree)
+```
+```{r}
+nGenes<-ncol(poa.mat.gsg)
+nSamples<-nrow(poa.mat.gsg)
+
+sampNames<-rownames(poa.mat.gsg)
+traitRows<- match(sampNames,as.character(poa$Sample.Name))
+
+names(poa)[6:8] <- c("e2", "age", "duration")
+poa$e2[61:82] <- as.factor(ifelse(poa$Group.ID[61:82] == 7, yes = "e", 
+    no = "v"))
+poa$age[which(poa$age == "o")] <- factor("m")
+poa$duration <- factor(c(rep(3, length(1:40)), rep(6, length(41:60)), rep(NA,length(61:82))))
+
+poa$duration<-as.factor((as.character(poa$duration)))
+
+datTraits<- data.frame(Treatment=as.numeric(poa$Group.ID[traitRows]),E2=as.numeric(poa$e2[traitRows]),age=as.numeric(poa$age[traitRows]),duration=as.numeric(poa$duration[traitRows]))
+
+sampleTree2 = flashClust(dist(poa.mat.gsg), method = "average")
+traitColors = numbers2colors(datTraits, signed = FALSE);
+```
+```{r fig.height=9,fig.width=12}
+plotDendroAndColors(sampleTree2, traitColors,
+                    groupLabels = names(datTraits),
+                    main = "Sample dendrogram and trait heatmap")
+```
+```{r}
+#powers<- c(1:10, seq(from=12,to=20,by=2))
+#sft<-pickSoftThreshold(poa.mat.gsg,powerVector=powers,verbose=5)
+#sizeGrWindow(9,5)
+#par(mfrow=c(1,2))
+#cex1=.9
+
+#plot(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],xlab="soft threshold (power)",ylab="scale free R2",type="n",main="scale independence")
+#text(sft$fitIndices[,1],-sign(sft$fitIndices[,3])*sft$fitIndices[,2],labels=powers,cex=cex1,col="red")
+#abline(h=.9,col="red")
+#plot(sft$fitIndices[,1],sft$fitIndices[,5],type="n",xlab="power",ylab="mean connectivity")
+#text(sft$fitIndices[,1],sft$fitIndices[,5],labels=powers,cex=cex1,col="red")
+
+#I'll go with 4 for now but may test from 4-8
+
+softPower<-5
+adjacency=adjacency(poa.mat.gsg,power=softPower)
+TOM=TOMsimilarity(adjacency)
+dissTOM<- 1-TOM
+
+geneTree=flashClust(as.dist(dissTOM),method="average")
+#sizeGrWindow(12,9)
+```
+```{r fig.height=9,fig.width=12}
+plot(geneTree,xlab="",sub="",main="Gene clustering on TOM-based dissimilarity",labels=FALSE,hang=.04)
+```
+```{r}
+minModuleSize=0
+dynamicMods<- cutreeDynamic(dendro=geneTree,distM=dissTOM,deepSplit=2,pamRespectsDendro=FALSE,minClusterSize=minModuleSize)
+table(dynamicMods)
+
+dynamicColors=labels2colors(dynamicMods)
+table(dynamicColors)
+```
+```{r fig.height=9,fig.width=12}
+plotDendroAndColors(geneTree,dynamicColors,"Dynamic Tree Cut",dendroLabels=FALSE,hang=.03,addGuide=TRUE,guideHang=.05,main="Gene dendrogram and module colors")
+```
+```{r}
+MEList<-moduleEigengenes(poa.mat.gsg,colors=dynamicColors)
+Modules<-data.frame(gene=colnames(poa.mat.gsg),color=MEList$validColors)
+MEs<-MEList$eigengenes
+
+MEs$treatment<-poa$Group[match(rownames(poa.mat.gsg),poa$Sample.Name)]
+
+names(MEs)
+```
+```{r fig.height=3.5,fig.width=5}
+blue<-aov(MEblue~treatment,data=MEs)
+summary(blue)
+plot(MEblue~treatment,data=MEs)
+```
+```{r fig.height=3.5,fig.width=5}
+brown<-aov(MEbrown~treatment,data=MEs)
+summary(brown)
+plot(MEbrown~treatment,data=MEs)
+```
+```{r fig.height=3.5,fig.width=5}
+green<-aov(MEgreen~treatment,data=MEs)
+summary(green)
+plot(MEgreen~treatment,data=MEs)
+```
+```{r fig.height=3.5,fig.width=5}
+grey<-aov(MEgrey~treatment,data=MEs)
+summary(grey)
+plot(MEgrey~treatment,data=MEs)
+```
+```{r}
+turquoise<-aov(MEturquoise~treatment,data=MEs)
+summary(turquoise)
+```
+```{r fig.height=3.5,fig.width=5}
+yellow<-aov(MEyellow~treatment,data=MEs)
+summary(yellow)
+plot(MEyellow~treatment,data=MEs)
+```
+```{r fig.height=3.5,fig.width=5}
+black<-aov(MEblack~treatment,data=MEs)
+summary(black)
+plot(MEblack~treatment,data=MEs)
+```
+```{r fig.height=3.5,fig.width=5}
+  magenta<-aov(MEmagenta~treatment,data=MEs)
+summary(magenta)
+plot(MEmagenta~treatment,data=MEs)
+```
+```{r}
+pink<-aov(MEpink~treatment,data=MEs)
+summary(pink)
+```
+```{r}
+red<-aov(MEred~treatment,data=MEs)
+summary(red)
 ```
